@@ -1,6 +1,6 @@
-# Preturb
+# perturb
 
-> This is a pytorch implementation of preturb, which add noise to images to attack id classifier while keep downstream task available
+> This is a pytorch implementation of perturb, which add noise to images to attack id classifier while keep downstream task available
 
 > [!WARNING]  
 > For testing purposes only; accuracy is not guaranteed at this stage. 
@@ -8,7 +8,7 @@
 ## Repo Structure
 
 ```
-preturb/
+perturb/
  |- data/
    |- faces/
    |- imgs/
@@ -22,9 +22,14 @@ preturb/
    |- id_model.pth
    |- task_model.pth
    |- noise_model.pth
+ |- samples/
+   |- comparison.png
  |- util/
    |- data_preproccess.py
+   |- evaluate.py
    |- train_facenet.py
+ |- infer.py
+ |- README.md ( This file )
  |- requirements.txt
  |- train.py
 ```
@@ -34,8 +39,8 @@ preturb/
 Run commands below to prepare conda environment:
 
 ```shell
-$ conda create -n preturb python=3.12
-$ conda activate preturb
+$ conda create -n perturb python=3.12
+$ conda activate perturb
 $ pip install -r requirements.txt
 ```
 
@@ -48,8 +53,14 @@ CelebA Download link: [Baidu NetDisk]() [Google Drive]()
 Since we use facenet-pytorch, which need face to be right in the middle of the image, and the size of image should be 160 * 160, we use MTCNN to proccess the original images.
 
 ```shell
-$ python data_preparation.py 
+$ python utils/data_preparation.py 
 ```
+
+## Pre-trained models
+
+All pre-trained models or trained on CelebA dataset.
+
+Download link: [Baidu NetDisk]() [Google Drive]()
 
 ## Train
 
