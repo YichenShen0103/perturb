@@ -46,7 +46,7 @@ $ pip install -r requirements.txt
 
 ## Dataset
 
-CelebA Download link: [Baidu NetDisk]() [Google Drive]()
+CelebA Download link: [Baidu NetDisk](https://pan.baidu.com/s/1rCKjFZhh5IzwZnfdUFl7lA?pwd=w37x) [Google Drive](https://drive.google.com/file/d/1Tn_w3Kg2yMMZnfJ_khp0PR9WbGdF_i6O/view?usp=share_link)
 
 ### Data Preparation
 
@@ -60,7 +60,7 @@ $ python utils/data_preparation.py
 
 All pre-trained models or trained on CelebA dataset.
 
-Download link: [Baidu NetDisk]() [Google Drive]()
+Download link: [Baidu NetDisk](https://pan.baidu.com/s/1FnhqS5mhIBoGSYjzr4hqvg?pwd=134b) [Google Drive](https://drive.google.com/drive/folders/1Ygomk9mUZmaEDaA_NPkLy_QqMQu08W-3?usp=share_link)
 
 ## Train
 
