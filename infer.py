@@ -23,10 +23,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Load models
+    print("Loading models...")
     id_model = InceptionResnetV1(pretrained='vggface2', classify=True, num_classes=10177).to(device)
     task_model = BinaryClassifier().to(device)
     noise_generator = DiT_S_8(
-        input_size=input_size,
+        input_size=256,
         in_channels=3,
         scale=0.1,  # Control the strength of the perturbation
     ).to(device)
@@ -42,7 +43,7 @@ def main():
     
     # Data transformations
     transform = transforms.Compose([
-        transforms.Resize((input_size, input_size)),
+        transforms.Resize((256, 256)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
