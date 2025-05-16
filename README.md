@@ -20,6 +20,7 @@ perturb/
    |- BinaryClassifier.py
    |- CelebADataset.py
    |- DiT.py
+   |- SSIMLoss.py
  |- models/
    |- id_model.pth
    |- task_model.pth
@@ -27,10 +28,11 @@ perturb/
  |- samples/
    |- comparison.png
  |- util/
-   |- data_preproccess.py
-   |- evaluate.py
+   |- data_preparation.py
+   |- evaluate_models.py
    |- train_facenet.py
- |- infer.py
+ |- demo.py
+ |- evaluate.py
  |- README.md ( This file )
  |- requirements.txt
  |- train.py
