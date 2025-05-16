@@ -1,12 +1,4 @@
-import os
-import numpy as np
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as transforms
 
@@ -50,11 +42,10 @@ def main():
     
     # Load dataset using the custom dataset class
     print("Loading dataset...")
-    csv_path = 'data/attr_celeba_facenet.csv'  # Update with actual CSV filename
-    img_dir = 'data/faces'
-    attr = "Wearing_Hat"
+    data_dir = 'data/'
+    attr = "Male"
 
-    dataset = ImageDataset(csv_path=csv_path, img_dir=img_dir, attr=attr, transform=transform)
+    dataset = ImageDataset(data_dir=data_dir, attr=attr, transform=transform)
     val_size = int(0.2 * len(dataset))
     train_size = len(dataset) - val_size
     _, val_dataset = random_split(dataset, [train_size, val_size])

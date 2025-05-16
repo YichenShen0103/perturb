@@ -5,6 +5,8 @@
 > [!WARNING]  
 > For testing purposes only; accuracy is not guaranteed at this stage. 
 
+![comparison](samples/comparison.png)
+
 ## Repo Structure
 
 ```

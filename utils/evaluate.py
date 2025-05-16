@@ -2,21 +2,16 @@ import os
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from facenet_pytorch import MTCNN
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
-import torchvision.transforms as transforms
+from torchvision.transforms.functional import to_pil_image
 
 # Import our custom models and dataset
-from libs.CelebADataset import ImageDataset
-from facenet_pytorch import InceptionResnetV1
-from libs.BinaryClassifier import BinaryClassifier
 from libs.DiT import *
 
 def evaluate_models(noise_generator, id_model, task_model, val_loader, device, save_samples=True):
+    mtcnn = MTCNN(keep_all=False, device=device)
     noise_generator.eval()
     id_model.eval()
     task_model.eval()
@@ -33,23 +28,25 @@ def evaluate_models(noise_generator, id_model, task_model, val_loader, device, s
         sample_images = first_batch[0][:8].to(device)  # Take first 8 images
     
     with torch.no_grad():
-        for images, task_labels, id_labels in tqdm(val_loader, desc="Evaluating"):
-            images = images.to(device)
-            facenet_images = F.interpolate(images, size=(160, 160), mode='bilinear', align_corners=False)
+        for origin_images, facenet_images, task_labels, id_labels in tqdm(val_loader, desc="Evaluating"):
+            origin_images = origin_images.to(device)
             facenet_images = facenet_images.to(device)
-            task_labels = task_labels.to(device)
             id_labels = id_labels.to(device)
-            batch_size = images.size(0)
+            task_labels = task_labels.to(device)
+            batch_size = origin_images.size(0)
             total += batch_size
             
-            # Generate perturbed images
-            perturbed_images = noise_generator(images)
-            facenet_perturbed_images = F.interpolate(
-                perturbed_images, 
-                size=(160, 160), 
-                mode='bilinear', 
-                align_corners=False
-            )
+            # Generate noise using DiT
+            perturbed_images = noise_generator(origin_images)
+            stack = []
+            for img in perturbed_images: 
+                img_pil = to_pil_image(img.cpu().clamp(0, 1))
+                face = mtcnn(img_pil) 
+                if face is not None:
+                    stack.append(face)
+                else:
+                    stack.append(torch.zeros(3, 160, 160))
+            facenet_perturbed_images = torch.stack(stack).to(device)
             
             # ID classification
             id_preds_orig = id_model(facenet_images).argmax(1)
@@ -59,7 +56,7 @@ def evaluate_models(noise_generator, id_model, task_model, val_loader, device, s
             id_correct_pert += (id_preds_pert == id_labels).sum().item()
             
             # Task classification
-            task_preds_orig = task_model(images).argmax(1)
+            task_preds_orig = task_model(origin_images).argmax(1)
             task_preds_pert = task_model(perturbed_images).argmax(1)
             
             task_correct_orig += (task_preds_orig == task_labels).sum().item()

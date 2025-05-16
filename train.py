@@ -1,7 +1,5 @@
 import os
-import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -9,10 +7,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as transforms
+from torchvision.transforms.functional import to_pil_image
 
 # Import our custom models and dataset
 from libs.CelebADataset import ImageDataset
-from facenet_pytorch import InceptionResnetV1
+from facenet_pytorch import InceptionResnetV1, MTCNN
 from libs.BinaryClassifier import BinaryClassifier
 from libs.DiT import *
 
@@ -38,11 +37,10 @@ def main() -> None:
     
     # Load dataset using the custom dataset class
     print("Loading dataset...")
-    csv_path = 'data/attr_celeba_facenet.csv'  # Update with actual CSV filename
-    img_dir = 'data/faces'
-    attr = "Wearing_Hat"
+    data_dir = 'data/'
+    attr = "Male"
     
-    dataset = ImageDataset(csv_path=csv_path, img_dir=img_dir, attr=attr, transform=transform)
+    dataset = ImageDataset(data_dir=data_dir, attr=attr, transform=transform)
     
     # Split into train and validation sets
     train_size = int(0.8 * len(dataset))
@@ -91,7 +89,7 @@ def main() -> None:
         print("Loaded existing task classifier model.")
     else:
         print("State-dict file doesn\'t exist. Training task classifier...")
-        train_task_classifier(task_model, train_loader, val_loader, device, epochs=10)
+        train_task_classifier(task_model, train_loader, val_loader, device, epochs=3)
         torch.save(task_model.state_dict(), 'models/task_classifier.pth')
     
     # Phase 3: Train the DiT noise generator
@@ -117,13 +115,11 @@ def train_task_classifier(model, train_loader, val_loader, device, epochs=5):
     criterion = nn.CrossEntropyLoss()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
     
-    best_acc = 0.0
-    
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
         
-        for images, attr_labels, _ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
+        for images, _, attr_labels, __ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
             images = images.to(device)
             attr_labels = attr_labels.to(device)
             
@@ -149,7 +145,7 @@ def validate_task_classifier(model, val_loader, criterion, device):
     total = 0
     
     with torch.no_grad():
-        for images, attr_labels, _ in val_loader:
+        for images, _, attr_labels, __ in val_loader:
             images = images.to(device)
             attr_labels = attr_labels.to(device)
             
@@ -168,9 +164,13 @@ def identity_confusion_loss(id_preds, id_labels):
     """
     Maximizes confusion in ID predictions
     """
-    return -F.cross_entropy(id_preds, id_labels)
+    # return -F.cross_entropy(id_preds, id_labels)
+    margin = math.log(10177) * 0.8
+    return torch.clamp(margin - F.cross_entropy(id_preds, id_labels), min=0)
 
 def train_noise_generator(noise_generator, id_model, task_model, train_loader, val_loader, device, epochs=50, lr=0.0001):
+    mtcnn = MTCNN(keep_all=False, device=device)
+
     # Freeze ID and task models
     for param in id_model.parameters():
         param.requires_grad = False
@@ -184,11 +184,12 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
     optimizer = optim.AdamW(noise_generator.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     task_criterion = nn.CrossEntropyLoss()
+    visual_criterion = nn.L1Loss()
     
     # Loss weights
     lambda_id = 1.0      # Weight for ID confusion loss
-    lambda_task = 1.0  # Weight for task preservation loss
-    lambda_visual = 0.5  # Weight for visual similarity loss
+    lambda_task = 1.0    # Weight for task preservation loss
+    lambda_visual = 10.0  # Weight for visual similarity loss
     
     for epoch in range(epochs):
         noise_generator.train()
@@ -197,30 +198,30 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
         running_task_loss = 0.0
         running_visual_loss = 0.0
         
-        for images, attr_labels , id_labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
+        for images, _, attr_labels , id_labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
             images = images.to(device)
-            facenet_images = F.interpolate(images, size=(160, 160), mode='bilinear', align_corners=False)
-            facenet_images = facenet_images.to(device)
             id_labels = id_labels.to(device)
             attr_labels = attr_labels.to(device)
-            batch_size = images.size(0)
             
             optimizer.zero_grad()
             
             # Generate noise using DiT
             perturbed_images = noise_generator(images)
-            facenet_perturbed_images = F.interpolate(
-                perturbed_images, 
-                size=(160, 160), 
-                mode='bilinear', 
-                align_corners=False
-            )
+
+            stack = []
+            for img in perturbed_images: 
+                img_pil = to_pil_image(img.cpu().clamp(0, 1))
+                face = mtcnn(img_pil)
+                if face is not None:
+                    stack.append(face)
+                else:
+                    stack.append(torch.zeros(3, 160, 160))
+            facenet_perturbed_images = torch.stack(stack).to(device)
             
             # Get predictions from ID and task models
-            id_pred_orig = id_model(facenet_images)
             id_pred_pert = id_model(facenet_perturbed_images)
             
-            tast_pred_orig = task_model(images)
+            # tast_pred_orig = task_model(images)
             task_pred_pert = task_model(perturbed_images)
             
             # Calculate losses
@@ -232,7 +233,7 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
             task_loss = task_criterion(task_pred_pert, attr_labels)
             
             # 3. Visual similarity loss (L1 loss)
-            visual_loss = nn.L1Loss()(perturbed_images, images)
+            visual_loss = visual_criterion(perturbed_images, images)
             
             # Total loss
             total_loss = lambda_id * id_loss + lambda_task * task_loss + lambda_visual * visual_loss
