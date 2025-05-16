@@ -62,7 +62,7 @@ $ python utils/data_preparation.py
 
 ## Pre-trained models
 
-All pre-trained models or trained on CelebA dataset.
+All pre-trained models were trained on CelebA dataset.
 
 Download link: [Baidu NetDisk](https://pan.baidu.com/s/1FnhqS5mhIBoGSYjzr4hqvg?pwd=134b) [Google Drive](https://drive.google.com/drive/folders/1Ygomk9mUZmaEDaA_NPkLy_QqMQu08W-3?usp=share_link)
 
