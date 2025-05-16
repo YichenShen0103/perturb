@@ -8,7 +8,7 @@ from facenet_pytorch import InceptionResnetV1
 from libs.BinaryClassifier import BinaryClassifier
 from libs.DiT import *
 
-from utils.evaluate import evaluate_models
+from utils.evaluate_models import evaluate_models
 
 def main():
     # Set device

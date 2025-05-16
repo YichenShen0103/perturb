@@ -13,9 +13,8 @@ from torchvision.transforms.functional import to_pil_image
 from libs.CelebADataset import ImageDataset
 from facenet_pytorch import InceptionResnetV1, MTCNN
 from libs.BinaryClassifier import BinaryClassifier
+from libs.SSIMLoss import SSIMLoss
 from libs.DiT import *
-
-from utils.evaluate import evaluate_models
 
 def main() -> None:
     # Set device
@@ -105,10 +104,7 @@ def main() -> None:
         lr=lr
     )
     torch.save(noise_generator.state_dict(), 'models/noise_generator.pth')
-    
-    # Final evaluation
-    print("\nFinal evaluation...")
-    evaluate_models(noise_generator, id_model, task_model, val_loader, device)
+    print("DiT noise generator training completed.")
 
 def train_task_classifier(model, train_loader, val_loader, device, epochs=5):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -184,7 +180,10 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
     optimizer = optim.AdamW(noise_generator.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     task_criterion = nn.CrossEntropyLoss()
-    visual_criterion = nn.L1Loss()
+    # visual_criterion = nn.L1Loss()
+    # visual_criterion = nn.MSELoss()
+    # visual_criterion = nn.SmoothL1Loss()
+    visual_criterion = SSIMLoss(data_range=1.0)
     
     # Loss weights
     lambda_id = 1.0      # Weight for ID confusion loss
@@ -251,11 +250,7 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
         scheduler.step()
 
         # Save model every epoch
-        torch.save(noise_generator.state_dict(), f'models/noise_generator_epoch{epoch+1}.pth')
-        
-        # Evaluate every 5 epochs
-        if (epoch + 1) % 5 == 0:
-            evaluate_models(noise_generator, id_model, task_model, val_loader, device)
+        torch.save(noise_generator.state_dict(), f'.cache/noise_generator_epoch{epoch+1}.pth')
         
         # Print epoch stats
         print(f"Epoch {epoch+1}/{epochs}, "
