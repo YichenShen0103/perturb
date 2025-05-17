@@ -2,7 +2,7 @@
 
 > This is a pytorch implementation of perturb, which add noise to images to attack id classifier while keep downstream task available
 
-![comparison](samples/comparison.png)
+![comparison](assets/comparison.png)
 
 > [!WARNING]  
 > For testing purposes only, accuracy is not guaranteed at this stage. 
@@ -11,6 +11,8 @@
 
 ```
 perturb/
+ |- assets/
+   |- comparison.png
  |- data/
    |- faces/
    |- imgs/
@@ -25,8 +27,6 @@ perturb/
    |- id_model.pth
    |- task_model.pth
    |- noise_model.pth
- |- samples/
-   |- comparison.png
  |- util/
    |- data_preparation.py
    |- evaluate_models.py
