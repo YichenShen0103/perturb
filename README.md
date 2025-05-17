@@ -1,11 +1,24 @@
-# perturb
+# Perturb
 
 > This is a pytorch implementation of perturb, which add noise to images to attack id classifier while keep downstream task available
 
 ![comparison](assets/comparison.png)
 
-> [!WARNING]  
-> For testing purposes only, accuracy is not guaranteed at this stage. 
+> [!TIP]  
+> Run `demo.py` to view a comparison between the noise-added images and the original images like above.
+
+## ‼️ Latest Performance
+
+> **🌟 May 18**    
+> New version! It's now extremely hard to distinguish perturbed images and original ones. 
+
+|               | Original | Perturbed  |
+| ------------- | -------- | ---------- |
+| ID Accuracy   | 96.16%   | **46.81%** |
+| Task Accuracy | 98.24%   | **98.64%** |
+
+You can run `evaluate.py` to analysis your local models.
+
 
 ## Repo Structure
 
