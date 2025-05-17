@@ -205,7 +205,9 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
             optimizer.zero_grad()
             
             # Generate noise using DiT
-            perturbed_images = noise_generator(images)
+            added_noise = noise_generator(images)
+            perturbed_images = images + added_noise
+            # perturbed_images = noise_generator(images)
 
             stack = []
             for img in perturbed_images: 

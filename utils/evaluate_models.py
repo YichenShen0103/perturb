@@ -25,7 +25,9 @@ def evaluate_models(noise_generator, id_model, task_model, val_loader, device):
             total += batch_size
             
             # Generate noise using DiT
-            perturbed_images = noise_generator(origin_images)
+            # perturbed_images = noise_generator(origin_images)
+            added_noise = noise_generator(origin_images)
+            perturbed_images = origin_images + added_noise
             stack = []
             for img in perturbed_images: 
                 img_pil = to_pil_image(img.cpu().clamp(0, 1))

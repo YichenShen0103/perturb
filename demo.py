@@ -57,7 +57,9 @@ def main():
     sample_images = first_batch[0][:4].to(device)  # Take first 8 images
     id_labels = first_batch[3][:4]  # Take first 8 labels
     task_labels = first_batch[2][:4]  # Take first 8 labels
-    perturbed_images = noise_generator(sample_images)
+    # perturbed_images = noise_generator(sample_images)
+    added_noise = noise_generator(sample_images)
+    perturbed_images = sample_images + added_noise
     stack = []
     for img in perturbed_images: 
         img_pil = to_pil_image(img.cpu().clamp(0, 1))
