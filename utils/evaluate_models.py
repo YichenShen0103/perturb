@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 from facenet_pytorch import MTCNN
 from torchvision.transforms.functional import to_pil_image
+import torch.nn.functional as F
 
 def evaluate_models(noise_generator, id_model, task_model, val_loader, device):
     mtcnn = MTCNN(keep_all=False, device=device)
@@ -19,6 +20,8 @@ def evaluate_models(noise_generator, id_model, task_model, val_loader, device):
         for origin_images, facenet_images, task_labels, id_labels in tqdm(val_loader, desc="Evaluating"):
             origin_images = origin_images.to(device)
             facenet_images = facenet_images.to(device)
+            facenet_images = F.interpolate(facenet_images, size=(160, 160),
+                                           mode='bilinear', align_corners=False)
             id_labels = id_labels.to(device)
             task_labels = task_labels.to(device)
             batch_size = origin_images.size(0)

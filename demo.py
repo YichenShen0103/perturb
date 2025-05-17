@@ -55,7 +55,7 @@ def main():
     
     first_batch = next(iter(data_loader))
     sample_images = first_batch[0][:4].to(device)  # Take first 8 images
-    id_labels = first_batch[3][:4]  # Take first 8 labels
+    id_labels = first_batch[3][:4]    # Take first 8 labels
     task_labels = first_batch[2][:4]  # Take first 8 labels
     # perturbed_images = noise_generator(sample_images)
     added_noise = noise_generator(sample_images)
@@ -90,7 +90,8 @@ def main():
             axes[0, i].axis('off')
             axes[0, i].text(
                 0.5, -0.1, 
-                f"ID: {id_labels[i].item()}, Genger: {gender_dict[task_labels[i].item()]}", 
+                f"ID: {id_labels[i].item()}" +
+                f"Genger: {gender_dict[task_labels[i].item()]}", 
                 ha='center', va='top', transform=axes[0, i].transAxes
             )
             
@@ -99,7 +100,8 @@ def main():
             axes[1, i].axis('off')
             axes[1, i].text(
                 0.5, -0.1, 
-                f"ID: {id_preds_pert[i].item()}, Gender: {gender_dict[task_preds_pert[i].item()]}", 
+                f"ID: {id_preds_pert[i].item()}" +
+                f"Genger: {gender_dict[task_preds_pert[i].item()]}", 
                 ha='center', va='top', transform=axes[1, i].transAxes
             )
         

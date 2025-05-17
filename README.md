@@ -30,11 +30,11 @@ perturb/
  |- util/
    |- data_preparation.py
    |- evaluate_models.py
-   |- train_facenet.py
  |- demo.py
  |- evaluate.py
  |- README.md ( This file )
  |- requirements.txt
+ |- train_facenet.py
  |- train.py
 ```
 
@@ -74,4 +74,4 @@ Run commands below:
 $ python train.py
 ```
 
-If you want to train your own id or downstream task classifier, you shall delete the `.pth` file in `models/` respectively. If id classifier is to be trained, we provide you with a script `train_facenet.py` in `util/`.
+If you want to train your own id or downstream task classifier, you shall delete the `.pth` file in `models/` respectively. If id classifier is to be trained, we provide you with a script `train_facenet.py`.
