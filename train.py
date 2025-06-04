@@ -37,9 +37,9 @@ def main() -> None:
     # Load dataset using the custom dataset class
     print("Loading dataset...")
     data_dir = 'data/'
-    attr = "Male"
+    attrs = ["Smiling", "Male"]
     
-    dataset = ImageDataset(data_dir=data_dir, attr=attr, transform=transform)
+    dataset = ImageDataset(data_dir=data_dir, attrs=attrs, transform=transform)
     
     # Split into train and validation sets
     train_size = int(0.8 * len(dataset))
@@ -59,7 +59,7 @@ def main() -> None:
     id_model = InceptionResnetV1(pretrained='vggface2', classify=True, num_classes=10177).to(device)
     
     # Attr classifier using ResNet50
-    task_model = BinaryClassifier().to(device)
+    task_model_pipeline = [BinaryClassifier().to(device) for _ in attrs]
     
     # DiT noise generator - using the provided implementation
     noise_generator = DiT_S_8(
@@ -83,22 +83,24 @@ def main() -> None:
     
     # Phase 2: Train the task classifier
     print("\nPhase 2: Loading task classifier...")
-    if os.path.exists('models/task_classifier.pth'):
-        task_model.load_state_dict(torch.load('models/task_classifier.pth'))
-        print("Loaded existing task classifier model.")
-    else:
-        print("State-dict file doesn\'t exist. Training task classifier...")
-        train_task_classifier(task_model, train_loader, val_loader, device, epochs=3)
-        torch.save(task_model.state_dict(), 'models/task_classifier.pth')
-    
+    for i, attr in enumerate(attrs):
+        if os.path.exists(f'models/{attr}_classifier.pth'):
+            task_model_pipeline[i].load_state_dict(torch.load(f'models/{attr}_classifier.pth'))
+            print("Loaded existing task classifier model.")
+            # _, acc = validate_task_classifier(task_model_pipeline[i], i, val_loader, nn.CrossEntropyLoss(), device);
+            # print(f"Validation accuracy for {attr} classifier: {acc:.2f}%")
+        else:
+            print("State-dict file doesn\'t exist. Training task classifier...")
+            train_task_classifier(task_model_pipeline[i], i, train_loader, val_loader, device, epochs=3)
+            torch.save(task_model_pipeline[i].state_dict(), f'models/{attr}_classifier.pth')
+
     # Phase 3: Train the DiT noise generator
     print("\nPhase 3: Training DiT noise generator...")
     train_noise_generator(
         noise_generator, 
         id_model, 
-        task_model, 
+        task_model_pipeline, 
         train_loader, 
-        val_loader, 
         device, 
         epochs=num_epochs,
         lr=lr
@@ -106,7 +108,7 @@ def main() -> None:
     torch.save(noise_generator.state_dict(), 'models/noise_generator.pth')
     print("DiT noise generator training completed.")
 
-def train_task_classifier(model, train_loader, val_loader, device, epochs=5):
+def train_task_classifier(model, attr_index, train_loader, val_loader, device, epochs=5):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
@@ -115,9 +117,9 @@ def train_task_classifier(model, train_loader, val_loader, device, epochs=5):
         model.train()
         running_loss = 0.0
         
-        for images, _, attr_labels, __ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
+        for images, _, labels, __ in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
             images = images.to(device)
-            attr_labels = attr_labels.to(device)
+            attr_labels = labels[attr_index].to(device)
             
             optimizer.zero_grad()
             outputs = model(images)
@@ -128,22 +130,22 @@ def train_task_classifier(model, train_loader, val_loader, device, epochs=5):
             running_loss += loss.item()
         
         # Validate
-        val_loss, val_accuracy = validate_task_classifier(model, val_loader, criterion, device)
+        val_loss, val_accuracy = validate_task_classifier(model, attr_index, val_loader, criterion, device)
         scheduler.step(val_loss)
         
         print(f"Epoch {epoch+1}/{epochs}, Train Loss: {running_loss/len(train_loader):.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.2f}%")
 
-def validate_task_classifier(model, val_loader, criterion, device):
+def validate_task_classifier(model, attr_index, val_loader, criterion, device):
     model.eval()
     val_loss = 0.0
     correct = 0
     total = 0
     
     with torch.no_grad():
-        for images, _, attr_labels, __ in val_loader:
+        for images, _, labels, __ in val_loader:
             images = images.to(device)
-            attr_labels = attr_labels.to(device)
+            attr_labels = labels[attr_index].to(device)
             
             outputs = model(images)
             loss = criterion(outputs, attr_labels)
@@ -161,20 +163,31 @@ def identity_confusion_loss(id_preds, id_labels):
     Maximizes confusion in ID predictions
     """
     # return -F.cross_entropy(id_preds, id_labels)
-    margin = math.log(10177) * 0.8
+    margin = math.log(10177)
     return torch.clamp(margin - F.cross_entropy(id_preds, id_labels), min=0)
 
-def train_noise_generator(noise_generator, id_model, task_model, train_loader, val_loader, device, epochs=50, lr=0.0001):
+def visual_similarity_loss(perturbed_images, original_images, lambda_val=0.1):
+    """
+    Computes visual similarity loss between perturbed and original images
+    """
+    # Using L1 loss as a simple visual similarity metric
+    # return F.l1_loss(perturbed_images, original_images)
+    x = perturbed_images - original_images
+    excess = torch.relu(x.abs() - lambda_val)
+    return excess.mean()
+
+def train_noise_generator(noise_generator, id_model, task_model_pipeline, train_loader, device, epochs=50, lr=0.0001):
     mtcnn = MTCNN(keep_all=False, device=device)
 
     # Freeze ID and task models
+    id_model.eval()
     for param in id_model.parameters():
         param.requires_grad = False
-    for param in task_model.parameters():
-        param.requires_grad = False
+    for task_model in task_model_pipeline:
+        task_model.eval()
+        for param in task_model.parameters():
+            param.requires_grad = False
     
-    id_model.eval()
-    task_model.eval()
     
     # Configure optimizer for noise generator
     optimizer = optim.AdamW(noise_generator.parameters(), lr=lr)
@@ -186,9 +199,9 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
     visual_criterion = SSIMLoss(data_range=1.0)
     
     # Loss weights
-    lambda_id = 1.0      # Weight for ID confusion loss
+    lambda_id = 2.0      # Weight for ID confusion loss
     lambda_task = 1.0    # Weight for task preservation loss
-    lambda_visual = 10.0  # Weight for visual similarity loss
+    lambda_visual = 5.0  # Weight for visual similarity loss
     
     for epoch in range(epochs):
         noise_generator.train()
@@ -197,10 +210,10 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
         running_task_loss = 0.0
         running_visual_loss = 0.0
         
-        for images, _, attr_labels , id_labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
+        for images, _, labels , id_labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
+            task_losses = []  # Initialize task loss
             images = images.to(device)
             id_labels = id_labels.to(device)
-            attr_labels = attr_labels.to(device)
             
             optimizer.zero_grad()
             
@@ -223,18 +236,20 @@ def train_noise_generator(noise_generator, id_model, task_model, train_loader, v
             id_pred_pert = id_model(facenet_perturbed_images)
             
             # tast_pred_orig = task_model(images)
-            task_pred_pert = task_model(perturbed_images)
+            for i, task_model in enumerate(task_model_pipeline):
+                attr_labels = labels[i].to(device)
+                task_pred_pert = task_model(perturbed_images)
+                task_losses.append(task_criterion(task_pred_pert, attr_labels))
+            task_loss = sum(task_losses) / len(task_model_pipeline)
             
             # Calculate losses
             # 1. ID confusion loss - maximize entropy of ID predictions
             id_loss = identity_confusion_loss(id_pred_pert, id_labels)
             # id_loss = task_criterion(id_pred_pert, id_labels)
             
-            # 2. Task preservation loss
-            task_loss = task_criterion(task_pred_pert, attr_labels)
-            
             # 3. Visual similarity loss (L1 loss)
-            visual_loss = visual_criterion(perturbed_images, images)
+            visual_loss = visual_similarity_loss(perturbed_images, images)
+            # visual_loss = visual_criterion(perturbed_images, images)
             
             # Total loss
             total_loss = lambda_id * id_loss + lambda_task * task_loss + lambda_visual * visual_loss

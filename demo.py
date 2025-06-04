@@ -14,6 +14,7 @@ from libs.DiT import *
 def main():
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    attr = "Male"
     
     # Load models
     print("Loading models...")
@@ -28,7 +29,7 @@ def main():
     # load state dicts
     try:
         id_model.load_state_dict(torch.load('models/facenet_celeba_finetuned.pth', map_location=device))
-        task_model.load_state_dict(torch.load('models/task_classifier.pth', map_location=device))
+        task_model.load_state_dict(torch.load(f'models/{attr}_classifier.pth', map_location=device))
         noise_generator.load_state_dict(torch.load('models/noise_generator.pth', map_location=device))
     except FileNotFoundError as e:
         print(f"Error loading model: {e}")
@@ -44,8 +45,8 @@ def main():
     # Load dataset using the custom dataset class
     print("Loading dataset...")
     data_dir = 'data/'
-    attr = "Male"
-    dataset = ImageDataset(data_dir=data_dir, attr=attr, transform=transform)
+    attrs = ["Male"]
+    dataset = ImageDataset(data_dir=data_dir, attrs=attrs, transform=transform)
     data_loader = DataLoader(dataset, batch_size=32, shuffle=False)
     gender_dict = {0: 'Female', 1: 'Male'}
     mtcnn = MTCNN(keep_all=False, device=device)
@@ -56,8 +57,7 @@ def main():
     first_batch = next(iter(data_loader))
     sample_images = first_batch[0][:4].to(device)  # Take first 8 images
     id_labels = first_batch[3][:4]    # Take first 8 labels
-    task_labels = first_batch[2][:4]  # Take first 8 labels
-    # perturbed_images = noise_generator(sample_images)
+    task_labels = first_batch[2][0][:4]  # Take first 8 labels
     added_noise = noise_generator(sample_images)
     perturbed_images = sample_images + added_noise
     stack = []
@@ -106,8 +106,8 @@ def main():
             )
         
         plt.tight_layout()
-        os.makedirs('samples', exist_ok=True)
-        plt.savefig('samples/comparison.png', dpi=150)
+        os.makedirs('assets', exist_ok=True)
+        plt.savefig('assets/comparison.png', dpi=150)
         plt.close()
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ class BinaryClassifier(nn.Module):
     def __init__(self):
         super(BinaryClassifier, self).__init__()
         # Use ResNet50 as requested
-        self.model = models.resnet50(pretrained=True)
+        self.model = models.resnet50(weights='ResNet50_Weights.IMAGENET1K_V1')
         
         # Replace the final fully connected layer
         num_features = self.model.fc.in_features

@@ -8,7 +8,7 @@ class ImageDataset(Dataset):
     """
     Custom dataset for loading images with labels from CSV file
     """
-    def __init__(self, data_dir, attr, transform=None):
+    def __init__(self, data_dir, attrs, transform=None):
         """
         Args:
             csv_path: Path to the CSV file with image_id and attr columns
@@ -19,16 +19,7 @@ class ImageDataset(Dataset):
         self.origin_img_dir = os.path.join(data_dir, 'imgs')
         self.facenet_img_dir = os.path.join(data_dir, 'faces')
         self.transform = transform
-        self.attr = attr
-        
-        # Map attr to numerical labels (0, 1)
-        # Assuming attr is stored as strings (e.g., 'male', 'female') or as binary values
-        unique_vals = self.data_frame[attr].unique()
-        if len(unique_vals) > 2:
-            raise ValueError(f"Expected binary values, found {len(unique_vals)} different values")
-        
-        self.attr_to_idx = {attribute: idx for idx, attribute in enumerate(unique_vals)}
-        print(f"Attribute mapping: {self.attr_to_idx}")
+        self.attrs = attrs
         
     def __len__(self):
         return len(self.data_frame)
@@ -52,8 +43,16 @@ class ImageDataset(Dataset):
             facenet_image = Image.new('RGB', (256, 256), (0, 0, 0))
         
         # Get attr label
-        attrbt = self.data_frame.iloc[idx][self.attr]
-        attrbt_idx = self.attr_to_idx[attrbt]
+        label_list = list()
+        for attr in self.attrs:
+            label = self.data_frame.iloc[idx][attr]
+            if isinstance(label, str):
+                label = 1 if label == '1' else 0
+            elif isinstance(label, bool):
+                label = int(label)
+            else:
+                label = 1 if label > 0 else 0
+            label_list.append(label)
 
         # Get ID label
         id_label = self.data_frame.iloc[idx]['person_id'] - 1
@@ -62,4 +61,4 @@ class ImageDataset(Dataset):
             facenet_image = self.transform(facenet_image)
             origin_image = self.transform(origin_image)
         
-        return origin_image, facenet_image, attrbt_idx, id_label
+        return origin_image, facenet_image, label_list, id_label
